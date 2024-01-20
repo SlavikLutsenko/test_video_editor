@@ -1,7 +1,13 @@
+import { VideoPlayer } from './components/VideoPlayer';
+
 export default function App() {
   return (
     <>
-      bla111
+      <VideoPlayer
+        controls
+        height={400}
+        src="https://download.samplelib.com/mp4/sample-10s.mp4"
+      />
     </>
   );
 }
