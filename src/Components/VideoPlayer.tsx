@@ -1,4 +1,4 @@
-import { FunctionComponent, useEffect, useRef } from 'react';
+import { forwardRef, useEffect, useRef } from 'react';
 import videojs from 'video.js';
 
 import 'video.js/dist/video-js.css';
@@ -15,7 +15,7 @@ export interface VideoPlayerProps {
   onReady?: () => void,
 }
 
-export const VideoPlayer: FunctionComponent<VideoPlayerProps> = ({
+export const VideoPlayer = forwardRef<Player, VideoPlayerProps>(({
   src,
   type,
 
@@ -24,7 +24,7 @@ export const VideoPlayer: FunctionComponent<VideoPlayerProps> = ({
   fluid,
   height,
   onReady,
-}) => {
+}, ref) => {
   const videoRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<Player | null>(null);
 
@@ -46,6 +46,13 @@ export const VideoPlayer: FunctionComponent<VideoPlayerProps> = ({
         fluid,
         height,
       }, onReady);
+
+      if (typeof ref === 'function') {
+        ref(playerRef.current);
+      }
+      else if (ref) {
+        ref.current = playerRef.current;
+      }
     }
   }, [
     src,
@@ -73,4 +80,4 @@ export const VideoPlayer: FunctionComponent<VideoPlayerProps> = ({
       <div ref={videoRef} />
     </div>
   );
-};
+});

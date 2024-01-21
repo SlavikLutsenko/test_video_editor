@@ -70,7 +70,8 @@ module.exports = {
         'allowTernary': true,
       },
     ],
-    'no-unused-vars': [
+    'no-unused-vars': 'off',
+    '@typescript-eslint/no-unused-vars': [
       'error',
       {
         'vars': 'all',
@@ -100,6 +101,7 @@ module.exports = {
           'Text',
           'event',
           'Range',
+          'MouseEvent',
         ],
       },
     ],
@@ -242,6 +244,7 @@ module.exports = {
     'react/jsx-curly-newline': ['error', { multiline: 'consistent', singleline: 'consistent' }],
     'react/jsx-equals-spacing': ['error', 'never'],
     'react/jsx-one-expression-per-line': 'error',
+    'react/display-name': 'off',
 
     // imports
     'import/no-relative-packages': 'error',
