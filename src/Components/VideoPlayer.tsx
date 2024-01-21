@@ -6,6 +6,7 @@ import Player from 'video.js/dist/types/player';
 
 export interface VideoPlayerProps {
   src: string,
+  type: string,
 
   controls?: boolean,
   responsive?: boolean,
@@ -16,6 +17,7 @@ export interface VideoPlayerProps {
 
 export const VideoPlayer: FunctionComponent<VideoPlayerProps> = ({
   src,
+  type,
 
   controls,
   responsive,
@@ -37,6 +39,7 @@ export const VideoPlayer: FunctionComponent<VideoPlayerProps> = ({
       playerRef.current = videojs(videoElement, {
         sources: [{
           src,
+          type,
         }],
         controls,
         responsive,
