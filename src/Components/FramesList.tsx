@@ -1,4 +1,7 @@
 import { ChangeEvent, FunctionComponent, useEffect, useRef, useState } from 'react';
+import Slider from 'rc-slider';
+
+import 'rc-slider/assets/index.css';
 
 export interface FramesListProps {
   videoSrc: string,
@@ -8,6 +11,9 @@ export interface FramesListProps {
   frameClassName?: string;
   progress?: number;
   onChangeCurrentTime?: (newProgress: number) => void;
+  startProgress?: number;
+  endProgress?: number;
+  onChangeProgressLength?: (newProgressLength: number[]) => void;
 }
 
 export const VideoFramesList: FunctionComponent<FramesListProps> = ({
@@ -18,6 +24,9 @@ export const VideoFramesList: FunctionComponent<FramesListProps> = ({
   frameClassName,
   progress,
   onChangeCurrentTime,
+  startProgress = 0,
+  endProgress = 100,
+  onChangeProgressLength,
 }) => {
   const [videoFramesList, setVideoFramesList] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -109,6 +118,17 @@ export const VideoFramesList: FunctionComponent<FramesListProps> = ({
         onChange={onChangeProgress}
         min="0"
         max="100"
+      />
+      <Slider
+        range
+        step={0.1}
+        min={0}
+        max={100}
+        defaultValue={[startProgress, endProgress]}
+        pushable
+        // @ts-expect-error - onChange requires the parameter number | number[]
+        // But we are a range parameter, so the parameter can only be number[]
+        onChange={onChangeProgressLength}
       />
     </>
   );
