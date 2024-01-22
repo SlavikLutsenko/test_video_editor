@@ -1,11 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import axios from 'axios';
+import { Subtitle } from 'interfaces/subtitle';
+// @ts-expect-error webvtt-parser doesn't have @types/webvtt-parser package
+import { WebVTTParser } from 'webvtt-parser';
 
 import Player from 'video.js/dist/types/player';
 
 import { VideoFramesList } from 'Components/FramesList';
+import { SubtitleList } from 'Components/SubtitleList';
 import { VideoPlayer } from 'Components/VideoPlayer';
 
-import { getCloudinaryVideoUrl } from 'services/cloudinary';
+import { getCloudinaryFileUrl, getCloudinaryVideoUrl } from 'services/cloudinary';
 
 export default function App() {
   const [videoUrl] = useState(getCloudinaryVideoUrl('test_video_editor/xqveap7pjub52c4dpyvy'));
@@ -17,6 +22,11 @@ export default function App() {
   const [startProgress, setStartProgress] = useState<number>(0);
   const [endProgress, setEndProgress] = useState<number>(100);
   const [isPaused, setIsPaused] = useState<boolean>(true);
+  const [subtitleList, setSubtitleList] = useState<Subtitle[]>([]);
+  const [playBreakPoints, setPlayBreakPoints] = useState<{
+    breakPointTime: number;
+    nextTime: number;
+  }[]>([]);
 
   const pauseVideoByEndProgress = useCallback(
     () => {
@@ -25,6 +35,21 @@ export default function App() {
       }
     },
     [playerRef, endProgress, duration]
+  );
+  const changeVideoCurrentTimeByPlayBreakPoints = useCallback(
+    () => {
+      if (playerRef.current) {
+        const playerCurrentTime = playerRef.current.currentTime() || 0;
+        const currentBreakPoints = playBreakPoints.find(({ breakPointTime, nextTime }) => (
+          breakPointTime <= playerCurrentTime && nextTime >= playerCurrentTime
+        ));
+
+        if (currentBreakPoints) {
+          playerRef.current.currentTime(currentBreakPoints.nextTime);
+        }
+      }
+    },
+    [playerRef, playBreakPoints]
   );
   const onPlay = useCallback(
     () => {
@@ -70,16 +95,40 @@ export default function App() {
 
   useEffect(() => {
     playerRef.current?.on('timeupdate', pauseVideoByEndProgress);
+    playerRef.current?.on('timeupdate', changeVideoCurrentTimeByPlayBreakPoints);
 
     return () => {
       if (playerRef.current) {
         playerRef.current?.off('timeupdate', pauseVideoByEndProgress);
+        playerRef.current?.off('timeupdate', changeVideoCurrentTimeByPlayBreakPoints);
       }
     };
-  }, [playerRef, endProgress, duration]);
+  }, [playerRef, pauseVideoByEndProgress, changeVideoCurrentTimeByPlayBreakPoints]);
+
+  useEffect(
+    () => {
+      const controller = new AbortController();
+
+      (async () => {
+        const { data } = await axios(
+          getCloudinaryFileUrl('test_video_editor/qcstwirl1ejcmc87qj1i.vtt'),
+          {
+            signal: controller.signal,
+          }
+        );
+
+        setSubtitleList((new WebVTTParser()).parse(data).cues);
+      })();
+
+      return () => {
+        controller.abort();
+      };
+    },
+    []
+  );
 
   return (
-    <div className="grid grid-cols-4 max-w-screen-2xl mx-auto">
+    <div className="grid grid-cols-4 max-w-screen-2xl mx-auto h-">
       <div className="col-span-3">
         <VideoPlayer
           ref={playerRef}
@@ -89,22 +138,28 @@ export default function App() {
           onPlay={onPlay}
           isPaused={isPaused}
         />
-        <VideoFramesList
-          videoSrc={videoUrl}
-          intervals={[5, 10, 20, 30, 50, 54]}
-          progress={currentTime / duration * 100 || 0}
-          onChangeCurrentTime={changeCurrentTime}
-          startProgress={startProgress}
-          endProgress={endProgress}
-          onChangeProgressLength={changeProgressLength}
-        />
+        {
+          !!subtitleList.length && (
+            <VideoFramesList
+              videoSrc={videoUrl}
+              subtitleList={subtitleList}
+              // progress={currentTime / duration * 100 || 0}
+              onChangeCurrentTime={changeCurrentTime}
+              startProgress={startProgress}
+              endProgress={endProgress}
+              onChangeProgressLength={changeProgressLength}
+              frameClassName="h-24"
+              onRemoveFrame={removeFrame}
+              currentTime={currentTime}
+              duration={duration}
+            />
+          )
+        }
       </div>
       <div className="col-span-1">
-        subtitles
-        {' '}
-        {currentTime}
-        {' '}
-        {duration}
+        <SubtitleList
+          subtitleList={subtitleList}
+        />
       </div>
     </div>
   );
@@ -128,5 +183,12 @@ export default function App() {
   function changeProgressLength([newStartProgress, newEndProgress]: number[]) {
     setStartProgress(newStartProgress);
     setEndProgress(newEndProgress);
+  }
+
+  function removeFrame(startTime: number, endTime: number) {
+    setPlayBreakPoints(currentValue => [...currentValue, {
+      breakPointTime: startTime,
+      nextTime: endTime,
+    }]);
   }
 }

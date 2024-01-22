@@ -1,32 +1,39 @@
 import { ChangeEvent, FunctionComponent, useEffect, useRef, useState } from 'react';
+import { faXmark } from '@fortawesome/free-solid-svg-icons';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { Subtitle } from 'interfaces/subtitle';
 import Slider from 'rc-slider';
 
 import 'rc-slider/assets/index.css';
 
 export interface FramesListProps {
   videoSrc: string,
+  subtitleList: Subtitle[];
+  currentTime: number;
+  duration: number;
 
-  interval?: number;
-  intervals?: number[];
   frameClassName?: string;
-  progress?: number;
+  // progress?: number;
   onChangeCurrentTime?: (newProgress: number) => void;
   startProgress?: number;
   endProgress?: number;
   onChangeProgressLength?: (newProgressLength: number[]) => void;
+  onRemoveFrame?: (startTime: number, endTime: number) => void;
 }
 
 export const VideoFramesList: FunctionComponent<FramesListProps> = ({
   videoSrc,
+  subtitleList,
+  currentTime,
+  duration,
 
-  interval = 5,
-  intervals = [],
   frameClassName,
-  progress,
+  // progress,
   onChangeCurrentTime,
   startProgress = 0,
   endProgress = 100,
   onChangeProgressLength,
+  onRemoveFrame,
 }) => {
   const [videoFramesList, setVideoFramesList] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -37,6 +44,7 @@ export const VideoFramesList: FunctionComponent<FramesListProps> = ({
     const video = document.createElement('video');
     const canvas = document.createElement('canvas');
     const images: string[] = [];
+    const intervals = subtitleList.map(({ startTime }) => startTime);
 
     video.crossOrigin = 'anonymous';
     video.volume = 0;
@@ -44,15 +52,13 @@ export const VideoFramesList: FunctionComponent<FramesListProps> = ({
     video.play();
 
     const handleDurationChange = () => {
-      let currentTime = 0;
+      let videoCurrentTime = 0;
 
       const extractFrame = () => {
         // If you pass intervals, frames will be created only in those seconds when it is needed
-        if (currentTime < video.duration && (intervals?.length ? intervals?.[images.length] : true)) {
-          currentTime += intervals?.length
-            ? intervals?.[images.length] - (intervals?.[images.length - 1] || 0)
-            : interval;
-          video.currentTime = currentTime;
+        if (videoCurrentTime < video.duration && intervals?.[images.length]) {
+          videoCurrentTime += intervals?.[images.length] - (intervals?.[images.length - 1] || 0);
+          video.currentTime = videoCurrentTime;
 
           canvas.width = video.videoWidth;
           canvas.height = video.videoHeight;
@@ -84,7 +90,7 @@ export const VideoFramesList: FunctionComponent<FramesListProps> = ({
     <>
       <div
         ref={frameListRef}
-        className="grid max-w-full overflow-auto grid-flow-col relative cursor-pointer"
+        className="max-w-full overflow-auto relative gap-[2px] flex"
       >
         {
           isLoading
@@ -93,20 +99,39 @@ export const VideoFramesList: FunctionComponent<FramesListProps> = ({
             )
             : (
               videoFramesList.map((image, idx) => (
-                <img key={idx} className={frameClassName} src={image} />
+                <div
+                  key={idx}
+                  className="relative [&>button]:hover:block"
+                  style={{
+                    width: `${(subtitleList[idx].endTime - subtitleList[idx].startTime) / duration * 100}%`,
+                  }}
+                >
+                  <img className={frameClassName} src={image} />
+                  <br />
+                  {subtitleList[idx].startTime}
+                  {' '}
+                  -
+                  {' '}
+                  {subtitleList[idx].endTime}
+                  {
+                    onRemoveFrame && (
+                      <button
+                        className="
+                          absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-red-400 text-2xl hidden
+                        "
+                        onClick={() => onRemoveFrame(
+                          subtitleList[idx].startTime,
+                          subtitleList[idx + 1]?.startTime || subtitleList[idx].endTime
+                        )}
+                      >
+                        <FontAwesomeIcon icon={faXmark} />
+                      </button>
+                    )
+                  }
+                </div>
               ))
             )
         }
-        <div
-          className="
-            h-full bg-red-300 bg-opacity-30 border-r-2 border-red-400
-            absolute left-0 top-0
-            transition-all ease-linear duration-200
-          "
-          style={{
-            width: `${progress}%`,
-          }}
-        />
       </div>
       <p>
         Progress:
@@ -114,10 +139,10 @@ export const VideoFramesList: FunctionComponent<FramesListProps> = ({
       <input
         type="range"
         className="w-full"
-        value={progress}
+        value={currentTime}
         onChange={onChangeProgress}
         min="0"
-        max="100"
+        max={duration}
       />
       <Slider
         range
