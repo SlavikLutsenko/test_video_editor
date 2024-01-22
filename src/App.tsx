@@ -12,44 +12,49 @@ import { VideoPlayer } from 'Components/VideoPlayer';
 
 import { getCloudinaryFileUrl, getCloudinaryVideoUrl } from 'services/cloudinary';
 
+interface PlayBreakPoint {
+  breakPointTime: number;
+  nextTime: number;
+}
+
 export default function App() {
   const [videoUrl] = useState(getCloudinaryVideoUrl('test_video_editor/xqveap7pjub52c4dpyvy'));
 
   const playerRef = useRef<Player | null>(null);
+  const playerVideoFrameCallbackID = useRef<number>(0);
 
-  const [currentTime, setCurrentTime] = useState<number>(0);
   const [duration, setDuration] = useState<number>(0);
   const [startProgress, setStartProgress] = useState<number>(0);
   const [endProgress, setEndProgress] = useState<number>(100);
   const [isPaused, setIsPaused] = useState<boolean>(true);
   const [subtitleList, setSubtitleList] = useState<Subtitle[]>([]);
-  const [playBreakPoints, setPlayBreakPoints] = useState<{
-    breakPointTime: number;
-    nextTime: number;
-  }[]>([]);
+  const [playBreakPoints, setPlayBreakPoints] = useState<PlayBreakPoint[]>([]);
 
-  const pauseVideoByEndProgress = useCallback(
+  const changeVideoEditorStates = useCallback(
     () => {
-      if (playerRef.current && (playerRef.current.currentTime() || 0) >= endProgress / 100 * duration) {
-        playerRef.current.pause();
-      }
-    },
-    [playerRef, endProgress, duration]
-  );
-  const changeVideoCurrentTimeByPlayBreakPoints = useCallback(
-    () => {
-      if (playerRef.current) {
-        const playerCurrentTime = playerRef.current.currentTime() || 0;
+      const player = playerRef.current;
+      const videoEl = player?.tech(true);
+      const videoDuration = player?.duration() || 0;
+      const videoCurrentTime = player?.currentTime() || 0;
+      const endTime = endProgress / 100 * videoDuration;
+
+      if (videoEl && player) {
+        if ((videoCurrentTime || 0) >= endTime) {
+          player.pause();
+        }
+
         const currentBreakPoints = playBreakPoints.find(({ breakPointTime, nextTime }) => (
-          breakPointTime <= playerCurrentTime && nextTime >= playerCurrentTime
+          breakPointTime <= videoCurrentTime && nextTime >= videoCurrentTime
         ));
 
         if (currentBreakPoints) {
-          playerRef.current.currentTime(currentBreakPoints.nextTime);
+          player.currentTime(currentBreakPoints.nextTime);
         }
+
+        playerVideoFrameCallbackID.current = videoEl.requestVideoFrameCallback(changeVideoEditorStates);
       }
     },
-    [playerRef, playBreakPoints]
+    [playerRef, startProgress, endProgress, playBreakPoints]
   );
   const onPlay = useCallback(
     () => {
@@ -67,19 +72,21 @@ export default function App() {
   useEffect(() => {
     updateIsPaused();
     playerRef.current?.on('durationchange', updateDuration);
-    playerRef.current?.on('timeupdate', updateCurrentTime);
     playerRef.current?.on('play', updateIsPaused);
     playerRef.current?.on('pause', updateIsPaused);
+    playerVideoFrameCallbackID.current = playerRef.current?.tech(true)?.requestVideoFrameCallback(
+      changeVideoEditorStates
+    ) || 0;
 
     return () => {
       if (playerRef.current) {
         playerRef.current?.off('durationchange', updateDuration);
-        playerRef.current?.off('timeupdate', updateCurrentTime);
         playerRef.current?.off('play', updateIsPaused);
         playerRef.current?.off('pause', updateIsPaused);
+        playerRef.current?.tech(true)?.cancelVideoFrameCallback(playerVideoFrameCallbackID.current);
       }
     };
-  }, [playerRef]);
+  }, [playerRef, playerRef.current?.tech(), changeVideoEditorStates]);
 
   useEffect(() => {
     const startTime = startProgress / 100 * duration;
@@ -92,18 +99,6 @@ export default function App() {
       playerRef.current.currentTime(endTime);
     }
   }, [playerRef, startProgress, endProgress, duration]);
-
-  useEffect(() => {
-    playerRef.current?.on('timeupdate', pauseVideoByEndProgress);
-    playerRef.current?.on('timeupdate', changeVideoCurrentTimeByPlayBreakPoints);
-
-    return () => {
-      if (playerRef.current) {
-        playerRef.current?.off('timeupdate', pauseVideoByEndProgress);
-        playerRef.current?.off('timeupdate', changeVideoCurrentTimeByPlayBreakPoints);
-      }
-    };
-  }, [playerRef, pauseVideoByEndProgress, changeVideoCurrentTimeByPlayBreakPoints]);
 
   useEffect(
     () => {
@@ -128,8 +123,8 @@ export default function App() {
   );
 
   return (
-    <div className="grid grid-cols-4 max-w-screen-2xl mx-auto h-">
-      <div className="col-span-3">
+    <div className="grid grid-cols-4 max-w-screen-2xl mx-auto gap-3 py-3">
+      <div className="col-span-3 space-y-3">
         <VideoPlayer
           ref={playerRef}
           height={400}
@@ -139,19 +134,18 @@ export default function App() {
           isPaused={isPaused}
         />
         {
-          !!subtitleList.length && (
+          !!subtitleList.length && playerRef.current && (
             <VideoFramesList
               videoSrc={videoUrl}
               subtitleList={subtitleList}
-              // progress={currentTime / duration * 100 || 0}
+              frameClassName="h-24"
+              videoPlayer={playerRef.current}
+              duration={duration}
               onChangeCurrentTime={changeCurrentTime}
               startProgress={startProgress}
               endProgress={endProgress}
               onChangeProgressLength={changeProgressLength}
-              frameClassName="h-24"
               onRemoveFrame={removeFrame}
-              currentTime={currentTime}
-              duration={duration}
             />
           )
         }
@@ -159,14 +153,11 @@ export default function App() {
       <div className="col-span-1">
         <SubtitleList
           subtitleList={subtitleList}
+          onRemoveFrame={removeFrame}
         />
       </div>
     </div>
   );
-
-  function updateCurrentTime() {
-    setCurrentTime(playerRef.current?.currentTime() || 0);
-  }
 
   function updateDuration() {
     setDuration(playerRef.current?.duration() || 0);
@@ -186,9 +177,38 @@ export default function App() {
   }
 
   function removeFrame(startTime: number, endTime: number) {
-    setPlayBreakPoints(currentValue => [...currentValue, {
-      breakPointTime: startTime,
-      nextTime: endTime,
-    }]);
+    setSubtitleList(currentValue => currentValue.map(subtitle => ({
+      ...subtitle,
+      isRemoved: subtitle.isRemoved ? subtitle.isRemoved : subtitle.startTime === startTime,
+    })));
+    setPlayBreakPoints(currentValue => (
+      [
+        ...currentValue,
+        {
+          breakPointTime: startTime - 0.1,
+          nextTime: endTime,
+        },
+      ]
+        .sort(({ breakPointTime: a }, { breakPointTime: b }) => a - b)
+        .reduce(
+          (accumulator, nextItem) => {
+            const nearbyRightIdx = accumulator.findIndex(({ nextTime }) => nextItem.breakPointTime <= nextTime);
+            const nearbyLeftIdx = accumulator.findIndex(({ breakPointTime }) => nextItem.nextTime <= breakPointTime);
+
+            if (nearbyRightIdx !== -1) {
+              accumulator[nearbyRightIdx].nextTime = nextItem.nextTime;
+            }
+            else if (nearbyLeftIdx !== -1) {
+              accumulator[nearbyLeftIdx].breakPointTime = nextItem.breakPointTime;
+            }
+            else {
+              accumulator.push(nextItem);
+            }
+
+            return accumulator;
+          },
+          [] as PlayBreakPoint[]
+        )
+    ));
   }
 }

@@ -1,6 +1,7 @@
 import { forwardRef, useEffect, useRef } from 'react';
 import { faCirclePlay, faPause } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { twMerge } from 'tailwind-merge';
 import videojs from 'video.js';
 
 import 'video.js/dist/video-js.css';
@@ -38,6 +39,7 @@ export const VideoPlayer = forwardRef<Player, VideoPlayerProps>(({
     if (videoRef.current && !playerRef.current) {
       const videoElement = document.createElement('video-js');
 
+      videoElement.setAttribute('id', 'test_edit_video');
       videoElement.classList.add('vjs-big-play-centered');
 
       videoRef.current.appendChild(videoElement);
@@ -82,10 +84,17 @@ export const VideoPlayer = forwardRef<Player, VideoPlayerProps>(({
   }, [playerRef]);
 
   return (
-    <div data-vjs-player>
-      <div ref={videoRef} />
+    <div data-vjs-player className="relative [&>button]:hover:opacity-100">
+      <div ref={videoRef} className="[&>video-js]:w-full" />
       <button
-        className="text-5xl text-blue-600 w-12 h-12"
+        className={twMerge(
+          `
+            text-5xl text-blue-600 w-12 h-12
+            absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50
+            transition-all duration-300 opacity-100
+          `,
+          !isPaused && 'opacity-0'
+        )}
         onClick={
           isPaused
             ? onPlay
