@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { faDownload } from '@fortawesome/free-solid-svg-icons';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import axios from 'axios';
 import { Subtitle } from 'interfaces/subtitle';
 // @ts-expect-error webvtt-parser doesn't have @types/webvtt-parser package
@@ -10,25 +12,47 @@ import { VideoFramesList } from 'Components/FramesList';
 import { SubtitleList } from 'Components/SubtitleList';
 import { VideoPlayer } from 'Components/VideoPlayer';
 
-import { getCloudinaryFileUrl, getCloudinaryVideoUrl } from 'services/cloudinary';
+import { cutCloudinaryVideo, getCloudinaryFileUrl, getCloudinaryVideoUrl } from 'services/cloudinary';
 
-interface PlayBreakPoint {
+export interface PlayBreakPoint {
   breakPointTime: number;
   nextTime: number;
 }
 
 export default function App() {
-  const [videoUrl] = useState(getCloudinaryVideoUrl('test_video_editor/xqveap7pjub52c4dpyvy'));
-
   const playerRef = useRef<Player | null>(null);
   const playerVideoFrameCallbackID = useRef<number>(0);
 
+  const [videoUrl] = useState(getCloudinaryVideoUrl('test_video_editor/xqveap7pjub52c4dpyvy'));
   const [duration, setDuration] = useState<number>(0);
   const [startProgress, setStartProgress] = useState<number>(0);
   const [endProgress, setEndProgress] = useState<number>(100);
   const [isPaused, setIsPaused] = useState<boolean>(true);
   const [subtitleList, setSubtitleList] = useState<Subtitle[]>([]);
   const [playBreakPoints, setPlayBreakPoints] = useState<PlayBreakPoint[]>([]);
+
+  const downloadLink = useMemo(
+    () => {
+      const startTime = startProgress / 100 * duration;
+      const endTime = endProgress / 100 * duration;
+
+      return cutCloudinaryVideo(
+        'test_video_editor/xqveap7pjub52c4dpyvy',
+        optimizePlayBreakPoints([
+          ...playBreakPoints,
+          {
+            breakPointTime: 0,
+            nextTime: startTime,
+          },
+          {
+            breakPointTime: endTime,
+            nextTime: duration,
+          },
+        ])
+      );
+    },
+    [playBreakPoints, startProgress, endProgress, duration]
+  );
 
   const changeVideoEditorStates = useCallback(
     () => {
@@ -150,7 +174,20 @@ export default function App() {
           )
         }
       </div>
-      <div className="col-span-1">
+      <div className="col-span-1 space-y-3">
+        <a
+          className="
+            flex items-center justify-center gap-3 w-full border-2 rounded-lg p-3 border-blue-500 text-blue-500
+            hover:bg-blue-500 hover:text-white transition-all
+          "
+          href={downloadLink}
+          download
+          target="_blank"
+          rel="noreferrer"
+        >
+          <FontAwesomeIcon icon={faDownload} />
+          Download
+        </a>
         <SubtitleList
           subtitleList={subtitleList}
           onRemoveFrame={removeFrame}
@@ -181,34 +218,36 @@ export default function App() {
       ...subtitle,
       isRemoved: subtitle.isRemoved ? subtitle.isRemoved : subtitle.startTime === startTime,
     })));
-    setPlayBreakPoints(currentValue => (
-      [
-        ...currentValue,
-        {
-          breakPointTime: startTime - 0.1,
-          nextTime: endTime,
+    setPlayBreakPoints(currentValue => optimizePlayBreakPoints([
+      ...currentValue,
+      {
+        breakPointTime: startTime - 0.1,
+        nextTime: endTime,
+      },
+    ]));
+  }
+
+  function optimizePlayBreakPoints(breakPoints: PlayBreakPoint[]) {
+    return breakPoints
+      .sort(({ breakPointTime: a }, { breakPointTime: b }) => a - b)
+      .reduce(
+        (accumulator, currentItem) => {
+          const nearbyRightIdx = accumulator.findIndex(({ nextTime }) => currentItem.breakPointTime <= nextTime);
+          const nearbyLeftIdx = accumulator.findIndex(({ breakPointTime }) => currentItem.nextTime <= breakPointTime);
+
+          if (nearbyRightIdx !== -1) {
+            accumulator[nearbyRightIdx].nextTime = currentItem.nextTime;
+          }
+          else if (nearbyLeftIdx !== -1) {
+            accumulator[nearbyLeftIdx].breakPointTime = currentItem.breakPointTime;
+          }
+          else {
+            accumulator.push(currentItem);
+          }
+
+          return accumulator;
         },
-      ]
-        .sort(({ breakPointTime: a }, { breakPointTime: b }) => a - b)
-        .reduce(
-          (accumulator, nextItem) => {
-            const nearbyRightIdx = accumulator.findIndex(({ nextTime }) => nextItem.breakPointTime <= nextTime);
-            const nearbyLeftIdx = accumulator.findIndex(({ breakPointTime }) => nextItem.nextTime <= breakPointTime);
-
-            if (nearbyRightIdx !== -1) {
-              accumulator[nearbyRightIdx].nextTime = nextItem.nextTime;
-            }
-            else if (nearbyLeftIdx !== -1) {
-              accumulator[nearbyLeftIdx].breakPointTime = nextItem.breakPointTime;
-            }
-            else {
-              accumulator.push(nextItem);
-            }
-
-            return accumulator;
-          },
-          [] as PlayBreakPoint[]
-        )
-    ));
+        [] as PlayBreakPoint[]
+      );
   }
 }
