@@ -1,13 +1,14 @@
 import { FunctionComponent, MouseEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { faSpinner, faXmark } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { Subtitle } from 'interfaces/subtitle';
 import Slider from 'rc-slider';
 import { twMerge } from 'tailwind-merge';
 
 import Player from 'video.js/dist/types/player';
 
 import 'rc-slider/assets/index.css';
+
+import { Subtitle } from 'interfaces/subtitle';
 
 export interface FramesListProps {
   videoSrc: string,
@@ -72,7 +73,6 @@ export const VideoFramesList: FunctionComponent<FramesListProps> = ({
       let videoCurrentTime = 0;
 
       const extractFrame = () => {
-        // If you pass intervals, frames will be created only in those seconds when it is needed
         if (videoCurrentTime < video.duration && intervals?.[images.length]) {
           videoCurrentTime += intervals?.[images.length] - (intervals?.[images.length - 1] || 0);
           video.currentTime = videoCurrentTime;

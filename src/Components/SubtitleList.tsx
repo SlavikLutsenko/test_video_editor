@@ -1,9 +1,10 @@
 import { FunctionComponent } from 'react';
-import { Subtitle } from 'interfaces/subtitle';
 import moment from 'moment';
 import { twMerge } from 'tailwind-merge';
 
 import 'rc-slider/assets/index.css';
+
+import { Subtitle } from 'interfaces/subtitle';
 
 export interface SubtitleListProps {
   subtitleList: Subtitle[],

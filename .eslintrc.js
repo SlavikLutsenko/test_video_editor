@@ -87,7 +87,8 @@ module.exports = {
     'wrap-iife': 'error',
     'yoda': ['error', 'never'],
     'strict': ['error', 'never'],
-    'no-shadow': [
+    'no-shadow': 'off',
+    '@typescript-eslint/no-shadow': [
       'error',
       {
         builtinGlobals: true,
@@ -280,6 +281,7 @@ module.exports = {
           ['^\\u0000Redux', '^Redux'],
           ['^\\u0000routes', '^routes'],
           ['^\\u0000services', '^services'],
+          ['^\\u0000interfaces', '^interfaces'],
           ['^\\u0000StaticPages', '^StaticPages'],
           ['^\\u0000styles', '^styles'],
           ['^\\u0000utlis', '^utlis'],

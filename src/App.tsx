@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { faDownload } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import axios from 'axios';
-import { Subtitle } from 'interfaces/subtitle';
 // @ts-expect-error webvtt-parser doesn't have @types/webvtt-parser package
 import { WebVTTParser } from 'webvtt-parser';
 
@@ -13,6 +12,8 @@ import { SubtitleList } from 'Components/SubtitleList';
 import { VideoPlayer } from 'Components/VideoPlayer';
 
 import { cutCloudinaryVideo, getCloudinaryFileUrl, getCloudinaryVideoUrl } from 'services/cloudinary';
+
+import { Subtitle } from 'interfaces/subtitle';
 
 export interface PlayBreakPoint {
   breakPointTime: number;
