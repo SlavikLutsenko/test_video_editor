@@ -1,9 +1,13 @@
 import { CloudinaryFile, CloudinaryVideo, Transformation } from '@cloudinary/url-gen';
+import { opacity } from '@cloudinary/url-gen/actions/adjust';
 import { source } from '@cloudinary/url-gen/actions/overlay';
+import { fill, scale } from '@cloudinary/url-gen/actions/resize';
 import { concatenate, trim } from '@cloudinary/url-gen/actions/videoEdit';
+import { Position } from '@cloudinary/url-gen/qualifiers';
 import { videoSource } from '@cloudinary/url-gen/qualifiers/concatenate';
-import { subtitles } from '@cloudinary/url-gen/qualifiers/source';
-import { PlayBreakPoint } from 'App';
+import { compass } from '@cloudinary/url-gen/qualifiers/gravity';
+import { image, subtitles } from '@cloudinary/url-gen/qualifiers/source';
+import { LogoPosition, PlayBreakPoint } from 'App';
 
 function getCloudConfig() {
   return {
@@ -27,19 +31,45 @@ export function getCloudinaryFileUrl(filePublicID: string): string {
 
 export function cutCloudinaryVideo(
   videoPublicID: string,
-  playBreakPoints: PlayBreakPoint[]
+  playBreakPoints: PlayBreakPoint[],
+  addLogo: LogoPosition = LogoPosition.none,
+  addIntro = false
 ): string {
   const invertedPlayBreakPoints = invertPlayBreakPoints(playBreakPoints);
 
-  let res = new CloudinaryVideo(videoPublicID)
-    .setCloudConfig(getCloudConfig())
-    .overlay(source(subtitles('test_video_editor/qcstwirl1ejcmc87qj1i.vtt')));
+  let res = addIntro
+    ? new CloudinaryVideo('samples/sea-turtle')
+      .setCloudConfig(getCloudConfig())
+      .overlay(source(subtitles('test_video_editor/qcstwirl1ejcmc87qj1i.vtt')))
+      .videoEdit(
+        trim()
+          .startOffset(0)
+          .endOffset(5)
+      )
+      .resize(
+        fill()
+          .width(640)
+          .height(334)
+      )
+    : new CloudinaryVideo(videoPublicID)
+      .setCloudConfig(getCloudConfig());
 
   if (invertedPlayBreakPoints.length) {
     res = res.videoEdit(
-      trim()
-        .startOffset(invertedPlayBreakPoints[0].breakPointTime)
-        .endOffset(invertedPlayBreakPoints[0].nextTime)
+      addIntro
+        ? concatenate(
+          videoSource(videoPublicID).transformation(
+            new Transformation()
+              .videoEdit(
+                trim()
+                  .startOffset(invertedPlayBreakPoints[0].breakPointTime)
+                  .endOffset(invertedPlayBreakPoints[0].nextTime)
+              )
+          )
+        )
+        : trim()
+          .startOffset(invertedPlayBreakPoints[0].breakPointTime)
+          .endOffset(invertedPlayBreakPoints[0].nextTime)
     );
 
     for (let i = 1; i < invertedPlayBreakPoints.length; i++) {
@@ -56,6 +86,20 @@ export function cutCloudinaryVideo(
         )
       );
     }
+  }
+
+  if (addLogo !== LogoPosition.none) {
+    res = res.overlay(
+      source(
+        image('test_video_editor/m4i0brvxzxokkbj1jjem')
+          .transformation(
+            new Transformation()
+              .resize(scale().width(100))
+              .adjust(opacity(70))
+          )
+      )
+        .position(new Position().gravity(compass(addLogo as unknown as string)))
+    );
   }
 
   return res.toURL();

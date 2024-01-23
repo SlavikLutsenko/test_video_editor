@@ -19,6 +19,32 @@ export interface PlayBreakPoint {
   nextTime: number;
 }
 
+export enum LogoPosition {
+  none = 'none',
+  north_east = 'north_east',
+  north_west = 'north_west',
+}
+
+interface LogoPositionOption {
+  value: LogoPosition,
+  text: string,
+}
+
+const logoPositionOptions: LogoPositionOption[] = [
+  {
+    value: LogoPosition.none,
+    text: 'None',
+  },
+  {
+    value: LogoPosition.north_east,
+    text: 'Top right',
+  },
+  {
+    value: LogoPosition.north_west,
+    text: 'Top left',
+  },
+];
+
 export default function App() {
   const playerRef = useRef<Player | null>(null);
   const playerVideoFrameCallbackID = useRef<number>(0);
@@ -30,6 +56,8 @@ export default function App() {
   const [isPaused, setIsPaused] = useState<boolean>(true);
   const [subtitleList, setSubtitleList] = useState<Subtitle[]>([]);
   const [playBreakPoints, setPlayBreakPoints] = useState<PlayBreakPoint[]>([]);
+  const [addLogoPosition, setAddLogoPosition] = useState<LogoPosition>(LogoPosition.none);
+  const [addIntro, setAddIntro] = useState<boolean>(false);
 
   const downloadLink = useMemo(
     () => {
@@ -48,10 +76,12 @@ export default function App() {
             breakPointTime: endTime,
             nextTime: duration,
           },
-        ])
+        ]),
+        addLogoPosition,
+        addIntro
       );
     },
-    [playBreakPoints, startProgress, endProgress, duration]
+    [playBreakPoints, startProgress, endProgress, duration, addLogoPosition, addIntro]
   );
 
   const changeVideoEditorStates = useCallback(
@@ -157,6 +187,33 @@ export default function App() {
           onPlay={onPlay}
           isPaused={isPaused}
         />
+        <div className="flex gap-3">
+          <label className="flex items-center gap-2 cursor-pointer">
+            Add logo
+            <select
+              className="border-2 border-gray-500 px-3 rounded-lg"
+              value={addLogoPosition}
+              onChange={({ target: { value } }) => setAddLogoPosition(value as unknown as LogoPosition)}
+            >
+              {
+                logoPositionOptions.map(({ value, text }) => (
+                  <option key={value} value={value}>
+                    {text}
+                  </option>
+                ))
+              }
+            </select>
+          </label>
+
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={addIntro}
+              onChange={() => setAddIntro(currentValue => !currentValue)}
+            />
+            Add intro
+          </label>
+        </div>
         {
           !!subtitleList.length && playerRef.current && (
             <VideoFramesList

@@ -1,5 +1,5 @@
 import { FunctionComponent, MouseEvent, useCallback, useEffect, useRef, useState } from 'react';
-import { faXmark } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faXmark } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { Subtitle } from 'interfaces/subtitle';
 import Slider from 'rc-slider';
@@ -132,7 +132,9 @@ export const VideoFramesList: FunctionComponent<FramesListProps> = ({
         {
           isLoading
             ? (
-              'Loading ...'
+              <div className="text-5xl text-blue-500 p-7 mx-auto animate-spin">
+                <FontAwesomeIcon icon={faSpinner} />
+              </div>
             )
             : (
               <>
